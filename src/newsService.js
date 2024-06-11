@@ -1,5 +1,5 @@
 export const getNews = (category) => {
-    const url = `http://localhost:3001/api/news?category=${category}`
+    const url = `${process.env.API}/api/news?category=${category}`
     return fetch(url)
         .then(res => res.json())
         .then(res => {
