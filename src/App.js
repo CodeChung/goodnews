@@ -1,8 +1,10 @@
 import logo from './logo.svg';
 import './App.css';
 import React, { useState } from 'react';
-import { Select, Button, FormControl, InputLabel, MenuItem, Card, CardHeader, CardMedia, CardContent, Link, Typography, Stack, Box } from '@mui/material';
+import { Select, Button, FormControl, InputLabel, MenuItem, Card, CardHeader, CardMedia, CardContent, Link, Typography, Stack, Box, Drawer, TextField, CircularProgress } from '@mui/material';
 import { getNews } from './newsService';
+import socketClient from "socket.io-client";
+const SERVER = "http://127.0.0.1:3001";
 
 function App() {
   const [categoryValue, setCategoryValue] = useState('general');
@@ -12,18 +14,43 @@ function App() {
     min: [0, 0],
     max: [0, 0]
   })
+  const [open, setOpen] = React.useState(false);
+  const [headline, setHeadline] = useState('');
+  const [headlineLoading, setHeadlineLoading] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+
+  const toggleDrawer = (newOpen) => () => {
+    setOpen(newOpen);
+  };
+
+
+  var socket = socketClient(SERVER);
+
+  const sendHeadline = () => {
+    setAnalysis(null);
+    setHeadlineLoading(true);
+    socket.emit('headline', headline, ack => {
+      console.log('ack yo')
+    })
+    setHeadline('');
+  }
+
+  socket.on('analysis', analysis => {
+    const positive = analysis.score >= 0 ? true : false;
+    analysis.score = `${Math.abs(analysis.score * 100).toFixed(2)}% ${positive ? 'positive' : 'negative'}`
+
+    setHeadlineLoading(false);
+    setAnalysis(analysis);
+  })
 
   const search = async (event) => {
     event.preventDefault();
-    console.log('doing search', categoryValue)
     const news = await getNews(categoryValue)
-    console.log('news ', news)
     setNewsValue(news.sort((a, b) => b.score - a.score));
     analyzeNews(news);
   }
 
   const analyzeNews = (news) => {
-    console.log('analyzing news', !news)
     if (!news) return;
     let total = 0;
     let min = Infinity;
@@ -32,8 +59,6 @@ function App() {
     let maxDex = 0;
     for (let i = 0; i < news.length; i++) {
       const currentScore = news[i]?.score || 0;
-      console.log(news[i].title, i)
-      console.log('score', currentScore)
       total += currentScore;
       if (currentScore < min) {
         min = currentScore;
@@ -43,15 +68,8 @@ function App() {
         max = currentScore;
         maxDex = i;
       }
-      console.log('min', min, minDex)
-      console.log('max', max, maxDex)
     }
     setStatsValue({
-      avg: total / news.length,
-      max: [max, maxDex],
-      min: [min, minDex]
-    })
-    console.log('stats', {
       avg: total / news.length,
       max: [max, maxDex],
       min: [min, minDex]
@@ -82,11 +100,29 @@ function App() {
                 Business
               </MenuItem>
             </Select>
-            <Button style={{marginLeft: '3px'}} variant='contained' size='large' onClick={e => search(e)}>Find News</Button>
+            <Button style={{ marginLeft: '3px' }} variant='contained' size='large' onClick={e => search(e)}>Find News</Button>
           </FormControl>
         </div>
+        <Button onClick={toggleDrawer(true)}>Create Your Own Headline</Button>
+        <Drawer open={open} onClose={toggleDrawer(false)}>
+          <div style={{ display: 'flex', width: '340px', paddingTop: '30px', padding: '10px', justifyContent: 'center' }}>
+            <TextField id="outlined-basic" label="Headline" variant="outlined" value={headline} onChange={evt => setHeadline(evt.target.value)} />
+            <Button variant="contained" onClick={() => sendHeadline()}>Analyze</Button>
+          </div>
+          {headlineLoading && <Box sx={{ display: 'flex', justifyContent: 'center', paddingTop: '20px' }}>
+            <CircularProgress />
+          </Box>}
+          {analysis && <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '20px' }}>
+            <Typography variant='h6'>
+              {analysis.headline}
+            </Typography>
+            <Typography variant='p'>
+              {analysis.score}
+            </Typography>
+          </Box>}
+        </Drawer>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-around', alignContent: 'center', width: '100%', height: '82vh'}}>
+      <div style={{ display: 'flex', justifyContent: 'space-around', alignContent: 'center', width: '100%', height: '82vh' }}>
         <Box
           sx={{
             overflow: 'hidden', // Hide overflow outside the container
