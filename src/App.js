@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Select, Button, FormControl, InputLabel, MenuItem, Card, CardHeader, CardMedia, CardContent, Link, Typography, Stack, Box, Drawer, TextField, CircularProgress } from '@mui/material';
 import { getNews } from './newsService';
 import socketClient from "socket.io-client";
-const SERVER = "http://127.0.0.1:3001";
+const SERVER = "https://goodnews-server.onrender.com";
 
 function App() {
   const [categoryValue, setCategoryValue] = useState('general');
